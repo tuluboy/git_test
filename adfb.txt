@@ -1,4 +1,5 @@
 adafsadf
+<<<<<<< HEAD
 asfdsafa
 
 
@@ -9,3 +10,18 @@ asfdsafa
 
 
 54645634646
+=======
+fsadfkdas;fsa;
+fsadfkdas;fsa;
+fsadfkdas;fsa;
+fsadfkdas;fsa;
+fsadfkdas;fsa;
+dssasfdsaf
+asdfadfasj j sdfsaf 
+
+fsdfasfsaf
+
+
+
+git tesst add lines a
+>>>>>>> 5145ef11c0cb773dd1c046448eb1cbfec6ddc3a0

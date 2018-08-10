@@ -421,3 +421,50 @@ void WorkSpace::LoadMktData(const char* FilePath)
 	}
 
 }
+
+
+============================
+
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<HF_RCI_1_3 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<GlobalCfg>
+		<MaxInstLmt>10</MaxInstLmt>
+		<test1>"test1"</test1>
+		<test2>"test2"</test2>
+	</GlobalCfg>
+	<InstCfg>
+		<ag1409>
+			<Lot>1</Lot>
+			<MinPoint>1</MinPoint>
+			<AmpCfm>1</AmpCfm>
+			<TestFlg>856</TestFlg>
+			<IsUseGrid>1</IsUseGrid>
+			<Cut>8</Cut>
+			<GridNum>4</GridNum>
+			<Cancel>4</Cancel>
+			<SpanGrid>3</SpanGrid>
+			<MoveOrd>10</MoveOrd>
+			<PrcDrwPt>6</PrcDrwPt>
+			<PrcDrwTime>60</PrcDrwTime>
+			<ReInit>0.8</ReInit>
+			<ZhuiDanPrint>0</ZhuiDanPrint>
+			<SmlCut>3</SmlCut>
+			<SecHLPrd>10000</SecHLPrd>
+			<DrwRate>6</DrwRate>
+			<HLGP>6</HLGP>
+			<NetPosLmt>1</NetPosLmt>
+			<RdNetCutPrc>10</RdNetCutPrc>
+			<CancleLmt>450</CancleLmt>
+			<BreakThresh>0.6</BreakThresh>
+			<HoldLots>3</HoldLots>
+			<FreeFlyingThresh>6</FreeFlyingThresh>
+			<FreeFlyingRange>3</FreeFlyingRange>
+			<TrailStopThresh>6</TrailStopThresh>
+			<TrailStopRange>3</TrailStopRange>
+			<TickWidth>1</TickWidth>
+			<InnerGridNum>2</InnerGridNum>
+			<OuterGridNum>8</OuterGridNum>
+			<Cut_T>3</Cut_T>
+		</ag1409>
+	</InstCfg>
+</HF_RCI_1_3>

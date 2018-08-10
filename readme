@@ -1,3 +1,423 @@
-this is a directory to test git usage!
-cut cut cut
-adafasfs
+TickProc* WorkSpace::LoadStgConf(const char* FilePath)
+{
+	TiXmlDocument xmldoc;
+	if(xmldoc.LoadFile(FilePath)==false)
+	{
+		EnterCriticalSection(&cs);
+		GLog<<"\nLoad config file error! xml filename: "<<FilePath;
+		LeaveCriticalSection(&cs);
+		return nullptr;
+	}
+	else
+	{
+		EnterCriticalSection(&cs);
+		GLog<<"\nLoad Xml file: "<<FilePath<<" Ok!";
+		LeaveCriticalSection(&cs);
+	}
+	if(strcmp(xmldoc.RootElement()->Value(), Global::ThisDllVer)!=0)
+	{
+		EnterCriticalSection(&cs);
+		GLog<<"\nConfig file not match to Dll...."<<"\nDll ver: "<<Global::ThisDllVer<<" xml root: "<<xmldoc.RootElement()->Value();
+		LeaveCriticalSection(&cs);
+		return nullptr;
+	}
+
+	// Configs for Instrument
+	// Get the block
+	TiXmlElement* theInstBlock = xmldoc.RootElement()->FirstChildElement(); //
+	TiXmlElement*   theInst  = theInstBlock->FirstChildElement(); // <InstCfg>
+	if(!theInstBlock)
+	{
+		EnterCriticalSection(&cs);
+		GLog<<"\nNo Inst para block...";
+		LeaveCriticalSection(&cs);
+		return nullptr;
+	}
+	std::string InsId;
+	InsId = theInst->Value();
+
+	//GLog<<"\ntheInst->Value()"<<InsId<<std::endl;
+	IssMng* pIss = nullptr;
+	if(NULL == _Instance->IssList[HashFun(InsId.c_str())]) // 本合约第一次加载
+	{
+		pIss = new IssMng(InsId.c_str());
+		_Instance->IssList[HashFun(InsId.c_str())] = pIss;
+		_Instance->Set(InsId.c_str(), pIss);
+		//pTick->TickWidth = 1; // 默认值为1，标准tick
+		//pTick->PrcRiskLevel = 0;
+		pIss->IxBase = TickProc::Count;
+
+		// 加载盘前数据
+		CInputDlg dlg(InsId.c_str());
+		int n_Res = dlg.DoModal();
+		//pTk->varin.gs21 = dlg.m_Para1; // 盘前数据昨低
+		//pTk->varin.gs22 = dlg.m_Para2; // 盘前数据昨高
+		// 合约当前总撤单次数
+		pIss->CancelTimes = dlg.m_Para15;
+		pIss->YstdLow = dlg.m_Para1; // 盘前数据昨低
+		pIss->YstdHigh = dlg.m_Para2; // 盘前数据昨高
+
+		// 重新计算YstdHigh, YstLow，根据最近2日的K线
+		KBar k0 = {"", "", 0, 0, 0, 0, 0, 0};
+		KBar k1 = {"20140812", "15:00:00", dlg.m_Para7, dlg.m_Para8, dlg.m_Para9, dlg.m_Para10, 0, 0.0};
+		KBar k2 = {"20140811", "15:00:00", dlg.m_Para11, dlg.m_Para12, dlg.m_Para13, dlg.m_Para14, 0, 0.0};
+		pIss->m_KBars.RecvNewKBar(k2);
+		pIss->m_KBars.RecvNewKBar(k1);
+		pIss->m_KBars.RecvNewKBar(k0);
+	}
+	else
+	{
+		pIss = _Instance->IssList[HashFun(InsId.c_str())];
+	}
+
+	TickProc* pTick = new TickProc(InsId.c_str());
+	pTick->pIM = pIss;
+	pTick->pCancelTimesAll = &(pIss->CancelTimes);
+	pTick->LoadId = TickProc::Count++;
+	EnterCriticalSection(&cs);
+	GLog<<"\nSameIssLoad--The "<<pTick->LoadId<<"th Load....";
+	LeaveCriticalSection(&cs);
+	pIss->TKs.push_back(pTick);
+	//pIss->TKs[pTick->LoadId - pIss->IxBase] = pTick;
+
+	LoadMktData(WorkingPath.c_str());
+
+	TiXmlElement* thebox = theInst->FirstChildElement();
+
+	while(thebox)
+	{
+		std::string boxname = thebox->Value();
+		EnterCriticalSection(&cs);
+		GLog<<"\n"<<boxname<<"  "<<thebox->GetText();
+		LeaveCriticalSection(&cs);
+
+		if(boxname == "LotAdjUp")
+		{
+			pTick->m_Cfg.LotAdjUp = atoi(thebox->GetText());
+		}
+		else if(boxname == "LotAdjDn")
+		{
+			pTick->m_Cfg.LotAdjDn = atoi(thebox->GetText());
+		}
+		else if(boxname == "LotAdjMax")
+		{
+			pTick->m_Cfg.LotAdjMax = atoi(thebox->GetText());
+		}
+		else if(boxname == "LotAdjMin")
+		{
+			pTick->m_Cfg.LotAdjMin = atoi(thebox->GetText());
+		}
+		else if(boxname == "ProfStep")
+		{
+			pTick->m_Cfg.ProfStep = atof(thebox->GetText());
+		}
+		else if(boxname == "SellPrcAdj")
+		{
+			pTick->m_Cfg.SellPrcAdj = atoi(thebox->GetText());
+		}
+		else if(boxname == "TestFlg")
+		{
+			pTick->m_Cfg.TestFlg = atoi(thebox->GetText());
+		}
+		else if(boxname =="Cut")
+		{
+			pTick->m_Cfg.Cut = atoi(thebox->GetText());
+		}
+		else if(boxname=="Lot")
+		{
+			pTick->m_Cfg.Lot = atoi(thebox->GetText());
+		}
+		else if(boxname=="IsUseGrid")
+		{
+			pTick->m_Cfg.UseGrid = static_cast<bool> (atoi(thebox->GetText()));
+		}
+		else if(boxname=="GridNum")
+		{
+			pTick->m_Cfg.GridNum = atoi(thebox->GetText()) ;
+		}
+		else if(boxname=="MinPoint")
+		{
+			pTick->m_Cfg.MinPoint = atof(thebox->GetText()) ;
+		}
+		else if(boxname=="PrftMult") // 利润乘数每跳利润数
+		{
+			pTick->m_Cfg.PrftMult = atof(thebox->GetText());
+		}
+		else if(boxname== "Cancel")
+		{
+			pTick->m_Cfg.Cancel = atoi(thebox->GetText()) ;
+		}
+		else if(boxname=="NetPosLmt")
+		{
+			pTick->m_Cfg.NetPosLmt = atoi(thebox->GetText()) ;
+		}
+		else if(boxname=="SpanGrid")
+		{
+			pTick->m_Cfg.SpanGrid = atoi(thebox->GetText()) ;
+		}
+		else if(boxname=="MoveOrd")
+		{
+			pTick->m_Cfg.MoveOrd = atoi(thebox->GetText()) ;
+		}
+		else if(boxname=="PrcDrwPt")
+		{
+			pTick->m_Cfg.PrcDrwPt = atoi(thebox->GetText()) ;
+		}
+		else if(boxname == "PrcDrwTime")
+		{
+			pTick->m_Cfg.PrcDrwTime = atoi(thebox->GetText());
+		}
+		else if(boxname == "ZhuiDanPrint")
+		{
+			pTick->m_Cfg.ZhuiDanPrint = atoi(thebox->GetText());
+		}
+		else if(boxname == "SmlCut")
+		{
+			pTick->m_Cfg.SmlCut = atoi(thebox->GetText());
+		}
+		else if(boxname == "SecHLPrd")
+		{
+			pTick->m_Cfg.SecHLPrd = atoi(thebox->GetText());
+		}
+		else if(boxname == "HLPrd_1")
+		{
+			pTick->m_Cfg.HLPrd_1 = atoi(thebox->GetText());
+		}
+		else if(boxname == "Range_1")
+		{
+			pTick->m_Cfg.Range_1 = atoi(thebox->GetText());
+		}
+		else if(boxname == "DrwRate")
+		{
+			pTick->m_Cfg.DrwRate = atoi(thebox->GetText());
+		}
+		else if(boxname == "HLGP")
+		{
+			pTick->m_Cfg.HLGP = atoi(thebox->GetText());
+		}
+		else if(boxname == "AmpCfm")
+		{
+			pTick->m_Cfg.AmpCfm = atof(thebox->GetText());
+		}
+		else if(boxname == "RdNetCutPrc")
+		{
+			pTick->m_Cfg.RdNetCutPrc = atoi(thebox->GetText());
+		}
+		else if(boxname == "CancleLmt")
+		{
+			pTick->m_Cfg.CancleLmt = atoi(thebox->GetText());
+		}
+		else if(boxname == "ReInit")
+		{
+			pTick->m_Cfg.ReInit = atof(thebox->GetText());
+		}
+		else if(boxname == "MaxSendLot")
+		{
+			pTick->m_Cfg.MaxSendLot = atoi(thebox->GetText());
+		}
+		else if(boxname == "HoldMax")
+		{
+			pTick->m_Cfg.HoldMax = atoi(thebox->GetText());
+		}
+		//////////////////////////// for TrendAlgTick //////////////////////
+		else if(boxname == "HoldLots")
+		{
+			pTick->m_Cfg.HoldLots = atoi(thebox->GetText());
+		}
+		else if(boxname == "BreakThresh") // 0.6
+		{
+			pTick->m_Cfg.BreakThresh = atof(thebox->GetText()) / 100;
+		}
+		else if(boxname == "FreeFlyingThresh")
+		{
+			pTick->m_Cfg.FreeFlyingThresh = atoi(thebox->GetText());
+		}
+		else if(boxname == "FreeFlyingRange")
+		{
+			pTick->m_Cfg.FreeFlyingRange = atoi(thebox->GetText());
+		}
+		else if(boxname == "TrailStopThresh")
+		{
+			pTick->m_Cfg.TrailStopThresh = atoi(thebox->GetText());
+		}
+		else if(boxname == "TrailStopRange")
+		{
+			pTick->m_Cfg.TrailStopRange = atoi(thebox->GetText());
+		}
+		else if(boxname == "TickWidth")
+		{
+			pTick->m_Cfg.TickWidth = atoi(thebox->GetText());
+		}
+		////////////////////////////// for InTOutG //////////////////////
+		else if(boxname == "InnerGridNum")
+		{
+			pTick->m_Cfg.InnerGridNum = atoi(thebox->GetText());
+		}
+		else if(boxname == "OuterGridNum")
+		{
+			pTick->m_Cfg.OuterGridNum = atoi(thebox->GetText());
+		}
+		else if(boxname == "Cut_T")
+		{
+			pTick->m_Cfg.Cut_T = atoi(thebox->GetText());
+		}
+		else if(boxname == "PrcRiskLevel")
+		{
+			pTick->m_Cfg.PrcRiskLevel = atof(thebox->GetText());
+		}
+		else if(boxname == "MaxDailyLoss")
+		{
+			pTick->m_Cfg.MaxDailyLoss = atof(thebox->GetText());
+		}
+		///////////////////////////// for TrendReversal //////////////////////
+		else if(boxname == "CumSSL")
+		{
+			pTick->m_Cfg.CumSSL = atoi(thebox->GetText());
+		}
+		else if(boxname == "ProfPoint")
+		{
+			pTick->m_Cfg.ProfPoint = atoi(thebox->GetText());
+		}
+		else if(boxname == "ProfPt0")
+		{
+			pTick->m_Cfg.ProfPt0 = atoi(thebox->GetText());
+		}
+		else if(boxname == "RvSend")
+		{
+			pTick->m_Cfg.RvSend = atoi(thebox->GetText());
+		}
+		///////////////////////////// 串联 //////////////////////
+		else if(boxname == "SSLev1")
+		{
+			pTick->m_Cfg.SSLev1 = atoi(thebox->GetText());
+		}
+		else if(boxname == "SSLev2")
+		{
+			pTick->m_Cfg.SSLev2 = atoi(thebox->GetText());
+		}
+		else if(boxname == "SSL1")
+		{
+			pTick->m_Cfg.SSL1 = atoi(thebox->GetText());
+		}
+		else if(boxname == "SSL2")
+		{
+			pTick->m_Cfg.SSL2 = atoi(thebox->GetText());
+		}
+		else if(boxname == "SSL3")
+		{
+			pTick->m_Cfg.SSL3 = atoi(thebox->GetText());
+		}
+		else if(boxname == "ThrowRushLev")
+		{
+			pTick->m_Cfg.ThrowRushLev = atoi(thebox->GetText());
+		}
+		// 新增参数项加在这
+		else if(boxname == "RiskRangeLev_Init")
+		{
+			pTick->m_Cfg.RiskRangeLev_Init = atoi(thebox->GetText());
+		}
+		else if(boxname == "RiskRangeLev")
+		{
+			pTick->m_Cfg.RiskRangeLev = atoi(thebox->GetText());
+		}
+		else if(boxname == "Hold_p1")
+            {
+                pTick->m_Cfg.Hold_p1 = atof(thebox->GetText());
+                }
+        else if(boxname == "Hold_p2")
+            {
+                pTick->m_Cfg.Hold_p2 = atof(thebox->GetText());
+                }
+        else if(boxname == "Hold_p3")
+            {
+                pTick->m_Cfg.Hold_p3 = atof(thebox->GetText());
+                }
+        else if(boxname == "Hold_p4")
+            {
+                pTick->m_Cfg.Hold_p4 = atof(thebox->GetText());
+                }
+
+
+		if(pIss->TKs.size() ==1)
+		{
+			//首次加载时
+			pIss->CalcYHYL();
+		}
+		thebox = thebox->NextSiblingElement();
+	}
+
+	pTick->m_Cfg.ValidCheck();
+	pIss->TotalCancelLimit += pTick->m_Cfg.CancleLmt;
+	pIss->TotalCancelLimit = pIss->TotalCancelLimit < 450 ? pIss->TotalCancelLimit : 450;
+	return pTick;
+}
+
+void WorkSpace::LoadMktData(const char* FilePath)
+{
+	TiXmlDocument xmldoc;
+	std::string PathName(FilePath);
+	PathName.append("\\").append(Global::MktDataFileName);
+	if(xmldoc.LoadFile(PathName.c_str())==false)
+	{
+		EnterCriticalSection(&cs);
+		GLog<<"\nLoad config file error! xml filename: "<<PathName;
+		LeaveCriticalSection(&cs);
+		return;
+	}
+	else
+	{
+		EnterCriticalSection(&cs);
+		GLog<<"\nLoad Xml file: "<<PathName<<" Ok!";
+		LeaveCriticalSection(&cs);
+	}
+
+	TiXmlElement* theItem = xmldoc.RootElement()->FirstChildElement();
+	TiXmlElement* theInst = theItem->FirstChildElement();
+	std::string InstName;
+	double FeeR, MultF;
+	BrokCalc::FeeTypeEnum Ft;
+	while(theInst)
+	{
+		InstName = theInst->Value();
+		EnterCriticalSection(&cs);
+		GLog<<"\nInstName: "<<InstName;
+		LeaveCriticalSection(&cs);
+
+		theItem = theInst->FirstChildElement();
+		FeeR = atof(theItem->GetText());
+		theItem = theItem->NextSiblingElement();
+		MultF = atof(theItem->GetText());
+		theItem = theItem->NextSiblingElement();
+		Ft = (BrokCalc::FeeTypeEnum) atoi(theItem->GetText());
+		if(InstName.length() == 1)
+		{
+			foreach(IssMap, it)
+			{
+				if(it->first[0] == InstName[0] && isdigit(it->first[1]))
+				{
+					foreach(it->second->TKs, jt)
+					{
+						(*jt)->m_BrokCalor.SetUp(FeeR, MultF, Ft);
+						(*jt)->m_Cfg.PrftMult = MultF;
+					}
+				}
+			}
+		}
+		else
+		{
+			foreach(IssMap, it)
+			{
+				if(it->first[0] == InstName[0] && it->first[1] == InstName[1])
+				{
+					foreach(it->second->TKs, jt)
+					{
+						(*jt)->m_BrokCalor.SetUp(FeeR, MultF, Ft);
+						(*jt)->m_Cfg.PrftMult = MultF;
+					}
+				}
+			}
+		}
+		theInst = theInst->NextSiblingElement();
+	}
+
+}
